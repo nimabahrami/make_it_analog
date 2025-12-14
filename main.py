@@ -209,8 +209,16 @@ def apply_effects(
     if aberration_amount > 0:
         lin = _apply_chromatic_aberration(lin, aberration_amount)
 
-    # --- Grain ---
-    h, w = y.shape
+    # --- Chromatic Aberration ---
+    if aberration_amount > 0:
+        lin = _apply_chromatic_aberration(lin, aberration_amount)
+
+    # Convert to sRGB first
+    out_lin = np.clip(lin, 0.0, 1.0)
+    out_srgb = _linear_to_srgb(out_lin)
+
+    # --- Grain (Applied in sRGB / Post-Process) ---
+    h, w, c = out_srgb.shape
     base_noise = rng.normal(0.0, 1.0, size=(h, w)).astype(np.float32)
     if grain_size > 1.0:
         n01 = (base_noise - base_noise.min()) / (base_noise.max() - base_noise.min() + 1e-6)
@@ -219,19 +227,21 @@ def apply_effects(
         n = np.asarray(n_img).astype(np.float32) / 255.0
         base_noise = (n - 0.5) * 2.0
     
-    # Recalculate luminance for grain weighting since image changed
-    y_final = 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
-    weight = (1.0 - np.clip(y_final, 0.0, 1.0)) ** 0.6
+    # Calculate sRGB Luma for grain weighting
+    # Standard sRGB luma: 0.299R + 0.587G + 0.114B
+    y_srgb = 0.299 * out_srgb[..., 0] + 0.587 * out_srgb[..., 1] + 0.114 * out_srgb[..., 2]
+    
+    weight = (1.0 - np.clip(y_srgb, 0.0, 1.0)) ** 0.6
     grain = base_noise * weight * float(grain_amount)
     
     color_noise = rng.normal(0.0, 1.0, size=(h, w, 3)).astype(np.float32)
     color_noise = (color_noise - color_noise.mean(axis=2, keepdims=True))
     grain_rgb = grain[..., None] + color_noise * (float(grain_amount) * float(grain_color) * 0.35)
 
-    out = lin + grain_rgb
-    out = np.clip(out, 0.0, 1.0)
-    out_srgb = (_linear_to_srgb(out) * 255.0 + 0.5).astype(np.uint8)
-    return Image.fromarray(out_srgb, mode="RGB")
+    final_srgb = out_srgb + grain_rgb
+    final_srgb = np.clip(final_srgb, 0.0, 1.0)
+    out_srgb_uint8 = (final_srgb * 255.0 + 0.5).astype(np.uint8)
+    return Image.fromarray(out_srgb_uint8, mode="RGB")
 
 
 # --- UI INTERACTION ---
