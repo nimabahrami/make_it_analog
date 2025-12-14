@@ -77,6 +77,7 @@ def apply_effects(
     streak_strength: float = 0.35,
     streak_threshold: float = 0.85,
     streak_stretch: float = 50.0,
+    streak_mode: str = "horizontal",
     aberration_amount: float = 0.001,
     grain_amount: float = 0.012,
     grain_size: float = 1.0,
@@ -135,19 +136,75 @@ def apply_effects(
         streak_t = float(streak_threshold)
         streak_mask = np.clip((bright - streak_t) / max(1e-6, (1.0 - streak_t)), 0.0, 1.0)
         streak_mask = streak_mask ** 4.0
-        streak_src = lin * streak_mask[..., None]
         
-        h, w, c = streak_src.shape
-        w_small = max(1, int(w / float(streak_stretch)))
-        
-        streak_src_pil = Image.fromarray((np.clip(_linear_to_srgb(streak_src), 0, 1) * 255).astype(np.uint8))
-        streak_shrunk = streak_src_pil.resize((w_small, h), resample=Image.BILINEAR)
-        streak_shrunk = streak_shrunk.filter(ImageFilter.GaussianBlur(radius=1.0))
-        streak_stretched = streak_shrunk.resize((w, h), resample=Image.BICUBIC)
-        streak_final = _srgb_to_linear(np.asarray(streak_stretched).astype(np.float32) / 255.0)
-        
-        lin = lin + streak_final * float(streak_strength)
+        # Helper for single direction streak
+        def make_streak(src_lin, stretch_factor):
+            h, w, c = src_lin.shape
+            w_small = max(1, int(w / float(stretch_factor)))
+            src_pil = Image.fromarray((np.clip(_linear_to_srgb(src_lin), 0, 1) * 255).astype(np.uint8))
+            shrunk = src_pil.resize((w_small, h), resample=Image.BILINEAR)
+            shrunk = shrunk.filter(ImageFilter.GaussianBlur(radius=1.0))
+            stretched = shrunk.resize((w, h), resample=Image.BICUBIC)
+            return _srgb_to_linear(np.asarray(stretched).astype(np.float32) / 255.0)
 
+        # Base source
+        base_src = lin * streak_mask[..., None]
+        streak_accum = np.zeros_like(lin)
+        
+        modes = []
+        if streak_mode == "horizontal":
+            modes = [0] # 0 degrees
+        elif streak_mode == "vertical":
+            modes = [90]
+        elif streak_mode == "cross":
+            modes = [0, 90]
+        elif streak_mode == "omni":
+            # 8-point star: 0, 45, 90, 135
+            modes = [0, 90, 45, 135]
+        
+        for angle in modes:
+            # Rotate/Transpose input to Horizontal
+            if angle == 0:
+                s = make_streak(base_src, streak_stretch)
+                streak_accum += s
+            elif angle == 90:
+                # Transpose (H <-> W)
+                s_T = np.transpose(base_src, (1, 0, 2))
+                s = make_streak(s_T, streak_stretch)
+                streak_accum += np.transpose(s, (1, 0, 2))
+            else:
+                # Diagonal - Rotate using PIL
+                # Convert base_src to PIL for rotation
+                src_pil = Image.fromarray((np.clip(_linear_to_srgb(base_src), 0, 1) * 255).astype(np.uint8))
+                # Expand canvas to fit rotation
+                src_rot = src_pil.rotate(angle, expand=True)
+                
+                # Convert back to numpy for processing
+                s_rot_np = _srgb_to_linear(np.asarray(src_rot).astype(np.float32) / 255.0)
+                
+                # Apply horizontal streak
+                s_streaked_np = make_streak(s_rot_np, streak_stretch)
+                
+                # Convert back to PIL to rotate back
+                s_streaked_pil = Image.fromarray((np.clip(_linear_to_srgb(s_streaked_np), 0, 1) * 255).astype(np.uint8))
+                
+                # Rotate back (negative angle), no expand, but need to crop center
+                # Getting sizing right for auto-expand rotation is tricky.
+                # simpler: rotate back and crop center?
+                s_back = s_streaked_pil.rotate(-angle, expand=True)
+                
+                # Crop to original size. Warning: center might shift if not careful.
+                # Center crop based on original dims
+                w_orig, h_orig = base_src.shape[1], base_src.shape[0]
+                w_curr, h_curr = s_back.size
+                left = (w_curr - w_orig) // 2
+                top = (h_curr - h_orig) // 2
+                s_back_crop = s_back.crop((left, top, left + w_orig, top + h_orig))
+                
+                streak_accum += _srgb_to_linear(np.asarray(s_back_crop).astype(np.float32) / 255.0)
+
+        lin = lin + streak_accum * float(streak_strength)
+    
     # --- Chromatic Aberration ---
     if aberration_amount > 0:
         lin = _apply_chromatic_aberration(lin, aberration_amount)
@@ -162,6 +219,7 @@ def apply_effects(
         n = np.asarray(n_img).astype(np.float32) / 255.0
         base_noise = (n - 0.5) * 2.0
     
+    # Recalculate luminance for grain weighting since image changed
     y_final = 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
     weight = (1.0 - np.clip(y_final, 0.0, 1.0)) ** 0.6
     grain = base_noise * weight * float(grain_amount)
@@ -175,10 +233,15 @@ def apply_effects(
     out_srgb = (_linear_to_srgb(out) * 255.0 + 0.5).astype(np.uint8)
     return Image.fromarray(out_srgb, mode="RGB")
 
+
 # --- UI INTERACTION ---
 
 uploaded_image = None
 processed_image = None
+
+def hex_to_rgb(hex_str):
+    hex_str = hex_str.lstrip('#')
+    return tuple(int(hex_str[i:i+2], 16)/255.0 for i in (0, 2, 4))
 
 @when("change", "#image-upload")
 def handle_upload(event):
@@ -241,7 +304,12 @@ async def run_processing():
     b_str = float(document.getElementById("bloom_strength").value)
     b_rad = float(document.getElementById("bloom_radius").value)
     
+    # Hex Color -> RGB Tuple
+    b_tint_hex = document.getElementById("bloom_tint_color").value
+    b_tint_rgb = hex_to_rgb(b_tint_hex)
+    
     s_str = float(document.getElementById("streak_strength").value)
+    s_mode = document.getElementById("streak_mode").value
     
     g_amt = float(document.getElementById("grain_amount").value)
     a_amt = float(document.getElementById("aberration_amount").value)
@@ -264,7 +332,9 @@ async def run_processing():
         halation_blur_radius=h_rad,
         bloom_strength=b_str,
         bloom_radius=b_rad,
+        bloom_tint=b_tint_rgb,
         streak_strength=s_str,
+        streak_mode=s_mode,
         grain_amount=g_amt,
         aberration_amount=a_amt
     )

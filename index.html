@@ -50,6 +50,11 @@
                 <div class="settings-group">
                     <h3>Golden Bloom</h3>
                     <div class="control-item">
+                        <label>Lumen (Tint)</label>
+                        <input type="color" id="bloom_tint_color" value="#ffd799"
+                            style="width: 100%; height: 40px; cursor: pointer;">
+                    </div>
+                    <div class="control-item">
                         <label>Strength <span id="val-bloom_strength">0.8</span></label>
                         <input type="range" id="bloom_strength" min="0" max="2.0" step="0.1" value="0.8">
                     </div>
@@ -61,6 +66,16 @@
 
                 <div class="settings-group">
                     <h3>Effects</h3>
+                    <div class="control-item">
+                        <label>Streak Mode</label>
+                        <select id="streak_mode"
+                            style="width: 100%; padding: 8px; border-radius: 4px; background: #333; color: white; border: none;">
+                            <option value="horizontal">Horizontal</option>
+                            <option value="vertical">Vertical</option>
+                            <option value="cross">Cross (+)</option>
+                            <option value="omni">Omni (Star)</option>
+                        </select>
+                    </div>
                     <div class="control-item">
                         <label>Streaks <span id="val-streak_strength">0.35</span></label>
                         <input type="range" id="streak_strength" min="0" max="2.0" step="0.05" value="0.35">
@@ -97,7 +112,7 @@
         packages = ["numpy", "pillow"]
     </py-config>
 
-    <script type="py" src="./main.py?v=2"></script>
+    <script type="py" src="./main.py?v=3"></script>
 
     <!-- JS Helper -->
     <script>
