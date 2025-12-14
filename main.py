@@ -204,8 +204,10 @@ def handle_upload(event):
             # but cleaner to just let the user process it.
             # Let's auto-process to show result? 
             # Or at least show "Ready to process". For now, user clicks Process.
+            # Show preview (source)
+            # Update text first or use ID selector
+            document.querySelector("#image-container p").innerText = "Image Loaded. Click 'Apply Effects'."
             document.getElementById("image-container").classList.remove("empty-state")
-            document.querySelector(".empty-state p").innerText = "Image Loaded. Click 'Apply Effects'."
             
             # Display source (optional, maybe we just show result)
             # display_image(img, "source-img")
