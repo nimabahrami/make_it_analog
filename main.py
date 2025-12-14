@@ -72,6 +72,7 @@ def apply_effects(
     halation_blur_radius: float = 60.0,
     bloom_strength: float = 0.8,
     bloom_radius: float = 120.0,
+    halation_tint: tuple[float, float, float] = (1.0, 0.45, 0.25),
     bloom_tint: tuple[float, float, float] = (1.0, 0.85, 0.6),
     streak_strength: float = 0.35,
     streak_threshold: float = 0.85,
