@@ -127,6 +127,12 @@
                 <div class="actions">
                     <button id="download-btn" class="secondary-btn" disabled>Download Result</button>
                 </div>
+
+                <!-- Error notification -->
+                <div id="error-notification"
+                    style="display:none; margin-top: 20px; padding: 15px; background: rgba(255, 68, 68, 0.1); border: 1px solid #ff4444; border-radius: 8px; color: #ff6666;">
+                    <strong>⚠️ Error:</strong> <span id="error-message"></span>
+                </div>
             </div>
         </main>
     </div>
@@ -136,7 +142,7 @@
         packages = ["numpy", "pillow"]
     </py-config>
 
-    <script type="py" src="./main.py?v=10"></script>
+    <script type="py" src="./main.py?v=11"></script>
 
     <!-- JS Helper -->
     <script>

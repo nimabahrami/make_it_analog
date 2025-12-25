@@ -385,48 +385,72 @@ async def run_processing():
         proc_img = proc_img.resize((new_w, new_h), Image.LANCZOS)
         print(f"High-quality resize: {w}x{h} → {new_w}x{new_h} (LANCZOS)")
 
-    result = apply_effects(
-        proc_img,
-        halation_strength=h_str,
-        halation_threshold=h_th,
-        halation_blur_radius=h_rad,
-        bloom_strength=b_str,
-        bloom_radius=b_rad,
-        bloom_tint=b_tint_rgb,
-        streak_strength=s_str,
-        streak_mode=s_mode,
-        grain_amount=g_amt,
-        aberration_amount=a_amt,
-        fade_amount=fade_amt,
-        mute_amount=mute_amt,
-        shadows=shadows_amt,
-        midtones=midtones_amt,
-        highlights=highlights_amt
-    )
+    # Hide any previous errors
+    document.getElementById("error-notification").style.display = "none"
     
-    processed_image = result
-    
-    # Display result
-    # Convert PIL to Bytes
-    buf = io.BytesIO()
-    result.save(buf, format="PNG")
-    byte_data = buf.getvalue()
-    
-    # Create Object URL in JS land? 
-    # Or base64. Base64 is easier in pure Python-to-DOM without extra JS bridge.
-    import base64
-    b64 = base64.b64encode(byte_data).decode('utf-8')
-    src = f"data:image/png;base64,{b64}"
-    
-    img_el = document.getElementById("result-img")
-    img_el.src = src
-    img_el.style.display = "block"
-    
-    document.getElementById("loading").style.display = "none"
-    
-    # Enable Download
-    dl_btn = document.getElementById("download-btn")
-    dl_btn.disabled = False
+    try:
+        result = apply_effects(
+            proc_img,
+            halation_strength=h_str,
+            halation_threshold=h_th,
+            halation_blur_radius=h_rad,
+            bloom_strength=b_str,
+            bloom_radius=b_rad,
+            bloom_tint=b_tint_rgb,
+            streak_strength=s_str,
+            streak_mode=s_mode,
+            grain_amount=g_amt,
+            aberration_amount=a_amt,
+            fade_amount=fade_amt,
+            mute_amount=mute_amt,
+            shadows=shadows_amt,
+            midtones=midtones_amt,
+            highlights=highlights_amt
+        )
+        
+        processed_image = result
+        
+        # Display result
+        # Convert PIL to Bytes
+        buf = io.BytesIO()
+        result.save(buf, format="PNG")
+        byte_data = buf.getvalue()
+        
+        # Create Object URL in JS land? 
+        # Or base64. Base64 is easier in pure Python-to-DOM without extra JS bridge.
+        import base64
+        b64 = base64.b64encode(byte_data).decode('utf-8')
+        src = f"data:image/png;base64,{b64}"
+        
+        img_el = document.getElementById("result-img")
+        img_el.src = src
+        img_el.style.display = "block"
+        
+        document.getElementById("loading").style.display = "none"
+        
+        # Enable Download
+        dl_btn = document.getElementById("download-btn")
+        dl_btn.disabled = False
+        
+    except MemoryError as e:
+        # Memory error - image too large
+        document.getElementById("loading").style.display = "none"
+        error_div = document.getElementById("error-notification")
+        error_msg = document.getElementById("error-message")
+        error_msg.innerText = f"Image too large for browser memory. Try reducing effect strengths or using a smaller image. (Error: {str(e)})"
+        error_div.style.display = "block"
+        print(f"Memory error: {e}")
+        
+    except Exception as e:
+        # Generic error
+        document.getElementById("loading").style.display = "none"
+        error_div = document.getElementById("error-notification")
+        error_msg = document.getElementById("error-message")
+        error_msg.innerText = f"Processing failed: {str(e)}"
+        error_div.style.display = "block"
+        print(f"Processing error: {e}")
+        import traceback
+        traceback.print_exc()
     
     # Setup download click (one-time listener or just direct property set?)
     # PyScript interaction with existing JS is sometimes tricky.
