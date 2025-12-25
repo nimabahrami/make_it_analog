@@ -363,8 +363,27 @@ async def run_processing():
     midtones_amt = float(document.getElementById("midtones").value)
     highlights_amt = float(document.getElementById("highlights").value)
     
-    # Process at FULL RESOLUTION - no downscaling for maximum quality
+    # HIGH QUALITY PROCESSING with smart memory management
+    # Maximum quality within browser memory constraints
     proc_img = uploaded_image.copy()
+    
+    # Limit to 3500px on longest side for highest quality that reliably works
+    # Uses premium LANCZOS resampling for best quality when downscaling needed
+    MAX_DIMENSION = 3500
+    w, h = proc_img.width, proc_img.height
+    
+    if w > MAX_DIMENSION or h > MAX_DIMENSION:
+        # Calculate scaling to fit within MAX_DIMENSION on longest side
+        if w > h:
+            new_w = MAX_DIMENSION
+            new_h = int(h * (MAX_DIMENSION / w))
+        else:
+            new_h = MAX_DIMENSION
+            new_w = int(w * (MAX_DIMENSION / h))
+        
+        # LANCZOS provides highest quality downsampling
+        proc_img = proc_img.resize((new_w, new_h), Image.LANCZOS)
+        print(f"High-quality resize: {w}x{h} → {new_w}x{new_h} (LANCZOS)")
 
     result = apply_effects(
         proc_img,
