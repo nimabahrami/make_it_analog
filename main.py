@@ -363,13 +363,13 @@ async def run_processing():
     midtones_amt = float(document.getElementById("midtones").value)
     highlights_amt = float(document.getElementById("highlights").value)
     
-    # HIGH QUALITY PROCESSING with smart memory management
-    # Maximum quality within browser memory constraints
+    # HIGH QUALITY PROCESSING with strict memory management
+    # Conservative limit to prevent memory errors in all browsers
     proc_img = uploaded_image.copy()
     
-    # Limit to 3500px on longest side for highest quality that reliably works
+    # Limit to 2500px on longest side - balanced quality and reliability
     # Uses premium LANCZOS resampling for best quality when downscaling needed
-    MAX_DIMENSION = 3500
+    MAX_DIMENSION = 2500
     w, h = proc_img.width, proc_img.height
     
     if w > MAX_DIMENSION or h > MAX_DIMENSION:
