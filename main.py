@@ -363,29 +363,8 @@ async def run_processing():
     midtones_amt = float(document.getElementById("midtones").value)
     highlights_amt = float(document.getElementById("highlights").value)
     
-    # Process
-    # Resize for preview speed? For now, process full res.
-    # If image is HUGE, maybe downscale.
+    # Process at FULL RESOLUTION - no downscaling for maximum quality
     proc_img = uploaded_image.copy()
-    
-    # SMART MEMORY HANDLING for PyScript/Pyodide
-    # PyScript has ~100MB usable memory for arrays
-    # Processing creates multiple intermediate arrays (5-8x memory usage from blur, streaks, etc.)
-    # Calculate safe resolution based on estimated memory usage
-    h_orig, w_orig = proc_img.height, proc_img.width
-    pixels = w_orig * h_orig
-    # Estimate: RGB float32 = 12 bytes/pixel, with 7x intermediate arrays = ~84 bytes/pixel
-    estimated_mb = pixels * 84 / (1024 * 1024)
-    MAX_MB = 70  # Conservative limit (leave room for Python overhead)
-    
-    if estimated_mb > MAX_MB:
-        scale_factor = (MAX_MB / estimated_mb) ** 0.5
-        new_w = int(w_orig * scale_factor)
-        new_h = int(h_orig * scale_factor)
-        proc_img = proc_img.resize((new_w, new_h), Image.LANCZOS)
-        print(f"Resized from {w_orig}x{h_orig} to {new_w}x{new_h} for memory constraints")
-    else:
-        print(f"Processing at original size: {w_orig}x{h_orig}")
 
     result = apply_effects(
         proc_img,
