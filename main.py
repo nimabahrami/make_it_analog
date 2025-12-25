@@ -319,8 +319,10 @@ async def run_processing():
     # If image is HUGE, maybe downscale.
     proc_img = uploaded_image.copy()
     
-    # MAX WIDTH for performance in browser
-    MAX_WIDTH = 2000
+    # MAX WIDTH for performance and memory in browser
+    # PyScript/Pyodide has limited memory (~100MB usable for arrays)
+    # Processing creates multiple intermediate arrays, so keep this conservative
+    MAX_WIDTH = 1200
     if proc_img.width > MAX_WIDTH:
         ratio = MAX_WIDTH / proc_img.width
         proc_img = proc_img.resize((MAX_WIDTH, int(proc_img.height * ratio)))
