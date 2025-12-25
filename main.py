@@ -82,6 +82,11 @@ def apply_effects(
     grain_amount: float = 0.012,
     grain_size: float = 1.0,
     grain_color: float = 0.20,
+    fade_amount: float = 0.0,
+    mute_amount: float = 0.0,
+    shadows: float = 0.0,
+    midtones: float = 0.0,
+    highlights: float = 0.0,
     seed: int | None = None,
 ) -> Image.Image:
     
@@ -89,7 +94,27 @@ def apply_effects(
 
     img = img.convert("RGB")
     srgb = np.asarray(img).astype(np.float32) / 255.0
+    srgb_original = srgb.copy()  # Keep original for fade
     lin = _srgb_to_linear(srgb)
+
+    # --- Tone Curve (Shadows, Midtones, Highlights) ---
+    if shadows != 0.0 or midtones != 0.0 or highlights != 0.0:
+        # Apply smooth tone curve using luminance-based weighting
+        y_curve = 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
+        
+        # Create smooth weights for each zone
+        shadow_weight = np.clip(1.0 - y_curve * 3.0, 0.0, 1.0) ** 2
+        highlight_weight = np.clip((y_curve - 0.6) * 2.5, 0.0, 1.0) ** 2
+        midtone_weight = 1.0 - shadow_weight - highlight_weight
+        midtone_weight = np.clip(midtone_weight, 0.0, 1.0)
+        
+        # Apply adjustments
+        adjustment = (
+            shadow_weight * float(shadows) * 0.3 +
+            midtone_weight * float(midtones) * 0.3 +
+            highlight_weight * float(highlights) * 0.3
+        )
+        lin = np.clip(lin + adjustment[..., None], 0.0, 3.0)
 
     # Luminance (linear)
     y = 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
@@ -230,6 +255,23 @@ def apply_effects(
 
     out = lin + grain_rgb
     out = np.clip(out, 0.0, 1.0)
+    
+    # --- Mute (Desaturation) ---
+    if mute_amount > 0:
+        # Convert to grayscale in linear space
+        luma = 0.2126 * out[..., 0] + 0.7152 * out[..., 1] + 0.0722 * out[..., 2]
+        gray = np.stack([luma, luma, luma], axis=-1)
+        # Blend between color and grayscale
+        out = out * (1.0 - float(mute_amount)) + gray * float(mute_amount)
+    
+    # --- Fade (Blend back to original) ---
+    if fade_amount > 0:
+        # Blend processed result back toward original
+        out_srgb_temp = _linear_to_srgb(out)
+        out_srgb_temp = out_srgb_temp * (1.0 - float(fade_amount)) + srgb_original * float(fade_amount)
+        out = _srgb_to_linear(out_srgb_temp)
+        out = np.clip(out, 0.0, 1.0)
+    
     out_srgb = (_linear_to_srgb(out) * 255.0 + 0.5).astype(np.uint8)
     return Image.fromarray(out_srgb, mode="RGB")
 
@@ -314,18 +356,36 @@ async def run_processing():
     g_amt = float(document.getElementById("grain_amount").value)
     a_amt = float(document.getElementById("aberration_amount").value)
     
+    # New effects
+    fade_amt = float(document.getElementById("fade_amount").value)
+    mute_amt = float(document.getElementById("mute_amount").value)
+    shadows_amt = float(document.getElementById("shadows").value)
+    midtones_amt = float(document.getElementById("midtones").value)
+    highlights_amt = float(document.getElementById("highlights").value)
+    
     # Process
     # Resize for preview speed? For now, process full res.
     # If image is HUGE, maybe downscale.
     proc_img = uploaded_image.copy()
     
-    # MAX WIDTH for performance and memory in browser
-    # PyScript/Pyodide has limited memory (~100MB usable for arrays)
-    # Processing creates multiple intermediate arrays, so keep this conservative
-    MAX_WIDTH = 1200
-    if proc_img.width > MAX_WIDTH:
-        ratio = MAX_WIDTH / proc_img.width
-        proc_img = proc_img.resize((MAX_WIDTH, int(proc_img.height * ratio)))
+    # SMART MEMORY HANDLING for PyScript/Pyodide
+    # PyScript has ~100MB usable memory for arrays
+    # Processing creates multiple intermediate arrays (5-8x memory usage from blur, streaks, etc.)
+    # Calculate safe resolution based on estimated memory usage
+    h_orig, w_orig = proc_img.height, proc_img.width
+    pixels = w_orig * h_orig
+    # Estimate: RGB float32 = 12 bytes/pixel, with 7x intermediate arrays = ~84 bytes/pixel
+    estimated_mb = pixels * 84 / (1024 * 1024)
+    MAX_MB = 70  # Conservative limit (leave room for Python overhead)
+    
+    if estimated_mb > MAX_MB:
+        scale_factor = (MAX_MB / estimated_mb) ** 0.5
+        new_w = int(w_orig * scale_factor)
+        new_h = int(h_orig * scale_factor)
+        proc_img = proc_img.resize((new_w, new_h), Image.LANCZOS)
+        print(f"Resized from {w_orig}x{h_orig} to {new_w}x{new_h} for memory constraints")
+    else:
+        print(f"Processing at original size: {w_orig}x{h_orig}")
 
     result = apply_effects(
         proc_img,
@@ -338,7 +398,12 @@ async def run_processing():
         streak_strength=s_str,
         streak_mode=s_mode,
         grain_amount=g_amt,
-        aberration_amount=a_amt
+        aberration_amount=a_amt,
+        fade_amount=fade_amt,
+        mute_amount=mute_amt,
+        shadows=shadows_amt,
+        midtones=midtones_amt,
+        highlights=highlights_amt
     )
     
     processed_image = result
