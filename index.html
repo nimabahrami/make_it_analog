@@ -6,12 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Halation & Bloom Filter</title>
     <link rel="stylesheet" href="style.css">
-
-    <!-- PyScript -->
-    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
-    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
-
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
 
@@ -19,7 +13,7 @@
     <div class="app-container">
         <header>
             <h1>Halation<span class="highlight">Filter</span></h1>
-            <p>Premium Analog Light Effects</p>
+            <p>Premium Analog Light Effects · Live Preview</p>
         </header>
 
         <main>
@@ -35,15 +29,15 @@
                     <h3>Halation</h3>
                     <div class="control-item">
                         <label>Strength <span id="val-halation_strength">1.3</span></label>
-                        <input type="range" id="halation_strength" min="0" max="3.0" step="0.1" value="1.3">
+                        <input type="range" id="halation_strength" min="0" max="3.0" step="0.1" value="1.3" data-default="1.3">
                     </div>
                     <div class="control-item">
                         <label>Radius <span id="val-halation_blur_radius">60</span></label>
-                        <input type="range" id="halation_blur_radius" min="10" max="200" step="5" value="60">
+                        <input type="range" id="halation_blur_radius" min="10" max="200" step="5" value="60" data-default="60">
                     </div>
                     <div class="control-item">
                         <label>Threshold <span id="val-halation_threshold">0.75</span></label>
-                        <input type="range" id="halation_threshold" min="0" max="1.0" step="0.05" value="0.75">
+                        <input type="range" id="halation_threshold" min="0" max="1.0" step="0.05" value="0.75" data-default="0.75">
                     </div>
                 </div>
 
@@ -56,11 +50,28 @@
                     </div>
                     <div class="control-item">
                         <label>Strength <span id="val-bloom_strength">0.8</span></label>
-                        <input type="range" id="bloom_strength" min="0" max="2.0" step="0.1" value="0.8">
+                        <input type="range" id="bloom_strength" min="0" max="2.0" step="0.1" value="0.8" data-default="0.8">
                     </div>
                     <div class="control-item">
                         <label>Radius <span id="val-bloom_radius">120</span></label>
-                        <input type="range" id="bloom_radius" min="10" max="300" step="10" value="120">
+                        <input type="range" id="bloom_radius" min="10" max="300" step="10" value="120" data-default="120">
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3>Light Leaks</h3>
+                    <div class="control-item">
+                        <label>Color</label>
+                        <input type="color" id="leak_color" value="#ff6a2a"
+                            style="width: 100%; height: 40px; cursor: pointer;">
+                    </div>
+                    <div class="control-item">
+                        <label>Strength <span id="val-leak_strength">0.0</span></label>
+                        <input type="range" id="leak_strength" min="0" max="1.0" step="0.02" value="0.0" data-default="0.0">
+                    </div>
+                    <div class="control-item">
+                        <label>Position <span id="val-leak_position">0.12</span></label>
+                        <input type="range" id="leak_position" min="0" max="1.0" step="0.01" value="0.12" data-default="0.12">
                     </div>
                 </div>
 
@@ -68,8 +79,7 @@
                     <h3>Effects</h3>
                     <div class="control-item">
                         <label>Streak Mode</label>
-                        <select id="streak_mode"
-                            style="width: 100%; padding: 8px; border-radius: 4px; background: #333; color: white; border: none;">
+                        <select id="streak_mode">
                             <option value="horizontal">Horizontal</option>
                             <option value="vertical">Vertical</option>
                             <option value="cross">Cross (+)</option>
@@ -78,23 +88,23 @@
                     </div>
                     <div class="control-item">
                         <label>Streaks <span id="val-streak_strength">0.35</span></label>
-                        <input type="range" id="streak_strength" min="0" max="2.0" step="0.05" value="0.35">
+                        <input type="range" id="streak_strength" min="0" max="2.0" step="0.05" value="0.35" data-default="0.35">
                     </div>
                     <div class="control-item">
-                        <label>Grain <span id="val-grain_amount">0.012</span></label>
-                        <input type="range" id="grain_amount" min="0" max="0.1" step="0.001" value="0.012">
+                        <label>Chromatic Aberration <span id="val-aberration_amount">0.15</span></label>
+                        <input type="range" id="aberration_amount" min="0" max="1.0" step="0.01" value="0.15" data-default="0.15">
                     </div>
                     <div class="control-item">
-                        <label>Aberration <span id="val-aberration_amount">0.001</span></label>
-                        <input type="range" id="aberration_amount" min="0" max="0.02" step="0.001" value="0.001">
+                        <label>Grain <span id="val-grain_amount">0.15</span></label>
+                        <input type="range" id="grain_amount" min="0" max="1.0" step="0.01" value="0.15" data-default="0.15">
                     </div>
                     <div class="control-item">
                         <label>Fade <span id="val-fade_amount">0.0</span></label>
-                        <input type="range" id="fade_amount" min="0" max="1.0" step="0.05" value="0.0">
+                        <input type="range" id="fade_amount" min="0" max="1.0" step="0.05" value="0.0" data-default="0.0">
                     </div>
                     <div class="control-item">
                         <label>Mute <span id="val-mute_amount">0.0</span></label>
-                        <input type="range" id="mute_amount" min="0" max="1.0" step="0.05" value="0.0">
+                        <input type="range" id="mute_amount" min="0" max="1.0" step="0.05" value="0.0" data-default="0.0">
                     </div>
                 </div>
 
@@ -102,33 +112,30 @@
                     <h3>Tone Curve</h3>
                     <div class="control-item">
                         <label>Shadows <span id="val-shadows">0.0</span></label>
-                        <input type="range" id="shadows" min="-1.0" max="1.0" step="0.1" value="0.0">
+                        <input type="range" id="shadows" min="-1.0" max="1.0" step="0.1" value="0.0" data-default="0.0">
                     </div>
                     <div class="control-item">
                         <label>Midtones <span id="val-midtones">0.0</span></label>
-                        <input type="range" id="midtones" min="-1.0" max="1.0" step="0.1" value="0.0">
+                        <input type="range" id="midtones" min="-1.0" max="1.0" step="0.1" value="0.0" data-default="0.0">
                     </div>
                     <div class="control-item">
                         <label>Highlights <span id="val-highlights">0.0</span></label>
-                        <input type="range" id="highlights" min="-1.0" max="1.0" step="0.1" value="0.0">
+                        <input type="range" id="highlights" min="-1.0" max="1.0" step="0.1" value="0.0" data-default="0.0">
                     </div>
                 </div>
 
-                <button id="process-btn" class="primary-btn">Apply Effects</button>
+                <button id="reset-btn" class="primary-btn">Reset Effects</button>
             </div>
 
             <div class="preview-panel">
                 <div id="image-container" class="empty-state">
-                    <p>No image uploaded</p>
-                    <img id="source-img" style="display:none;">
-                    <img id="result-img" style="display:none;">
-                    <div id="loading" class="loader" style="display:none;">Processing...</div>
+                    <p id="placeholder">No image uploaded</p>
+                    <canvas id="gl-canvas" style="display:none;"></canvas>
                 </div>
                 <div class="actions">
                     <button id="download-btn" class="secondary-btn" disabled>Download Result</button>
                 </div>
 
-                <!-- Error notification -->
                 <div id="error-notification"
                     style="display:none; margin-top: 20px; padding: 15px; background: rgba(255, 68, 68, 0.1); border: 1px solid #ff4444; border-radius: 8px; color: #ff6666;">
                     <strong>⚠️ Error:</strong> <span id="error-message"></span>
@@ -137,22 +144,7 @@
         </main>
     </div>
 
-    <!-- PyScript Logic -->
-    <py-config>
-        packages = ["numpy", "pillow"]
-    </py-config>
-
-    <script type="py" src="./main.py?v=11"></script>
-
-    <!-- JS Helper -->
-    <script>
-        // Simple slider value update
-        document.querySelectorAll('input[type="range"]').forEach(input => {
-            input.addEventListener('input', (e) => {
-                document.getElementById('val-' + e.target.id).textContent = e.target.value;
-            });
-        });
-    </script>
+    <script src="./app.js?v=1"></script>
 </body>
 
 </html>
